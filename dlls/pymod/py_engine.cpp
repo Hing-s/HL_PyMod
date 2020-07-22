@@ -17,36 +17,66 @@ FUNC(AlertMessage)
     return Py_None;
 }
 
+FUNC(SetOrigin) {
+    PyObject *ent, *origin;
+
+    if(!PyArg_ParseTuple(args, "OO", &ent, &origin))
+        return NULL;
+
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
+
+    if(entity) {
+
+    }
+
+    return  Py_None;
+
+}
+
 FUNC(CreateEntity) {
     const char *entity;
-    PyObject *origin, *angles;
-    unsigned long owner;
+    PyObject *origin, *angles, *owner;
 
-    if(!PyArg_ParseTuple(args, "sOOk", &entity, &origin, &angles, &owner))
-        return NULL;
+    if(!PyArg_ParseTuple(args, "sOOO", &entity, &origin, &angles, &owner))
+        return Py_None;
 
     edict_t *pEnt = CREATE_NAMED_ENTITY(MAKE_STRING(entity));
 
     if(pEnt) {
         SetVector(pEnt->v.origin, origin);
         SetVector(pEnt->v.angles, angles);
-        pEnt->v.owner = (edict_t*)owner;
+
+        if(owner != Py_None) {
+            edict_t *pEntOwner = ParseEnt(owner);
+            Py_DECREF(owner);
+
+            if(pEntOwner)
+                pEnt->v.owner = pEntOwner;
+        }
+
+
+        PyObject *pyEnt = Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
 
         DispatchSpawn(pEnt);
 
-        return PyLong_FromUnsignedLong((unsigned long)pEnt);
+        return pyEnt;
     }
 
     return Py_None;
 }
 
 FUNC(RemoveEntity) {
-    unsigned long entity;
+    PyObject *ent;
 
-    if(!PyArg_ParseTuple(args, "k", &entity))
+    if(!PyArg_ParseTuple(args, "O", &ent))
         return NULL;
 
-    REMOVE_ENTITY((edict_t*)entity);
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
+
+    if(entity)
+        REMOVE_ENTITY(entity);
 
     return Py_None;
 }
@@ -78,13 +108,16 @@ FUNC(PrecacheSound)
 FUNC(SetModel)
 {
     const char *model;
-    unsigned long offset;
+    PyObject *ent;
 
-    if(!PyArg_ParseTuple(args, "ks", &offset, &model))
+    if(!PyArg_ParseTuple(args, "Os", &ent, &model))
         return NULL;
 
-    edict_t *entity = (edict_t*)offset;
-    SET_MODEL(entity, model);
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
+
+    if(entity)
+        SET_MODEL(entity, model);
 
     return Py_None;
 }
@@ -94,14 +127,15 @@ FUNC(SetModel)
 FUNC(get)
 {
     const char *var;
-    unsigned int *addr;
+    PyObject *ent;
 
-    if(!PyArg_ParseTuple(args, "ks", &addr, &var))
+    if(!PyArg_ParseTuple(args, "Os", &ent, &var))
         return Py_None;
 
-    edict_t *entity = (edict_t*)addr;
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
 
-     if(entity)
+    if(entity)
         if IS(health)
                 return PyFloat_FromDouble((double)entity->v.health);
         if IS(origin)
@@ -118,14 +152,15 @@ FUNC(set)
 {
     const char *var;
     PyObject *value;
-    unsigned int *addr;
+    PyObject *ent;
 
-    if(!PyArg_ParseTuple(args, "ksO", &addr, &var, &value))
+    if(!PyArg_ParseTuple(args, "OsO", &ent, &var, &value))
         return Py_None;
 
-    edict_t *entity = (edict_t*)addr;
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
 
-     if(entity)
+   if(entity)
         if IS(health)
                  entity->v.health = (float)PyFloat_AsDouble(value);
         if IS(origin)
@@ -148,10 +183,11 @@ FUNC(get_player_by_name) {
     {
         CBaseEntity *pPlayer = UTIL_PlayerByIndex(i);
 
+
         if(pPlayer && !strcmp(name, STRING(pPlayer->pev->netname)))
         {
-            edict_t *edict = pPlayer->edict();
-            return PyLong_FromUnsignedLong((unsigned long)edict);
+            edict_t *pEnt = pPlayer->edict();
+            return Py_BuildValue("(ii)",  ENTINDEX(pEnt), pEnt->serialnumber);
         }
     }
 
@@ -170,13 +206,17 @@ FUNC(ServerCmd) {
 }
 
 FUNC(ClientCmd) {
-    unsigned long ent;
+    PyObject *ent;
     const char *cmd;
 
     if(!PyArg_ParseTuple(args, "ks", &ent, &cmd))
         return NULL;
 
-    CLIENT_COMMAND((edict_t*)ent, cmd);
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
+
+    if(entity)
+        CLIENT_COMMAND(entity, cmd);
 
     return Py_None;
 }
@@ -192,10 +232,10 @@ void CreateEngineModule() {
 }
 
 void PyInitEngine() {
-    REG(AlertMessage, "help");
-    REG(PrecacheModel, "help");
-    REG(PrecacheSound, "help");
-    REG(SetModel, "help");
+    REG(AlertMessage, "");
+    REG(PrecacheModel, "");
+    REG(PrecacheSound, "");
+    REG(SetModel, "");
     REG(set, "");
     REG(get, "");
     REG(CreateEntity, "");
@@ -203,6 +243,7 @@ void PyInitEngine() {
     REG(get_player_by_name, "");
     REG(ServerCmd, "");
     REG(ClientCmd, "");
+    REG(SetOrigin, "");
 
     CreateEngineModule();
 }

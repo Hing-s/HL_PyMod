@@ -157,4 +157,18 @@ static PyObject *GetVector(Vector vec) {
     return pyVec;
 }
 
+static edict_t *ParseEnt(PyObject *ent) {
+    int index, serial;
+
+    if(PyArg_ParseTuple(ent, "ii", &index, &serial)) {
+        edict_t *pEnt = INDEXENT(index);
+
+        if(pEnt && pEnt->serialnumber == serial)
+            return pEnt;
+
+    }
+
+    return NULL;
+}
+
 void PyInitEngine();

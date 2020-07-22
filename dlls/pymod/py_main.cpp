@@ -28,7 +28,7 @@ bool PyClientCommand(edict_t *pEnt, const char *pcmd, const char *args) {
         PyObject *func = PyObject_GetAttrString(handler, "func");
 
         if(func) {
-            PyObject *py_args = Py_BuildValue("kss", (unsigned long)pEnt, pcmd, args);
+            PyObject *py_args = Py_BuildValue("(ii)ss", ENTINDEX(pEnt), pEnt->serialnumber, pcmd, args);
             PyObject_CallObject(func, py_args);
             Py_DECREF(py_args);
             Py_DECREF(func);
