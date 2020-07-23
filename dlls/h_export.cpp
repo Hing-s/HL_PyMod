@@ -9,15 +9,17 @@ GIVEFNPTRSTODLL other_GiveFnptrsToDll;
 GETNEWDLLFUNCTIONS other_GetNewDLLFunctions;
 
 extern "C" void DLLEXPORT GiveFnptrsToDll( enginefuncs_t* pengfuncsFromEngine, globalvars_t *pGlobals )
-{   
+{
     memcpy( &g_engfuncs, pengfuncsFromEngine, sizeof(enginefuncs_t) );
     gpGlobals = pGlobals;
 
     h_Library = LoadLibrary( "valve/dlls/hl.so" );
+
+    //g_engfuncs.pfnAlertMessage = Alert;
     
     if(h_Library)
     {
-        PyInit();
+        PyInit(&g_engfuncs);
 
         other_GetEntityAPI = (GETENTITYAPI)GetProcAddress( h_Library, "GetEntityAPI" );
         other_GiveFnptrsToDll = (GIVEFNPTRSTODLL)GetProcAddress(h_Library, "GiveFnptrsToDll"); 

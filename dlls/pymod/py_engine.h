@@ -172,7 +172,7 @@ static edict_t *ParseEnt(PyObject *ent) {
     if(PyArg_ParseTuple(ent, "ii", &index, &serial)) {
         edict_t *pEnt = INDEXENT(index);
 
-        if(pEnt && pEnt->serialnumber == serial)
+        if(!FNullEnt(pEnt) && pEnt->serialnumber == serial)
             return pEnt;
 
     }

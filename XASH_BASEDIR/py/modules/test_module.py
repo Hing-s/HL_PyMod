@@ -4,30 +4,45 @@ def cmd(ent, cmd, args):
 	except Exception as e:
 		eng.AlertMessage(1, '{}\n'.format(e))
 
+	return True
+
 
 def hp(ent, cmd, args):
 	pev = ENT(ent).pev
 	pev.health = float(args)
 
+	return True
+
 def spawn(ent, cmd, args):
 	pev = ENT(ent).pev
-	offset = eng.CreateEntity(args, pev.origin, pev.angles, 0)
-
-	eng.RemoveEntity(offset)
-	eng.RemoveEntity(offset)
-
+	ent = eng.CreateEntity(args, pev.origin, pev.angles, 0)
 
 	eng.AlertMessage(1, "OK\n")
 
+	return True
+
 def msg(ent, cmd, args):
-	msg = [(2, 'HudText', None, None),
-		('string', 'Test')
-	]
+	eng.send_message(2, 'HudText', None, None, (
+		WRITE_STRING('TEST'),
+	))
 
-	eng.send_message(msg)
+	return True
+
+def say(ent, cmd, args):
+	if(args.strip('"') == 'test'):
+		hp(ent, cmd, 100)
+		return True
+
+	return False
+
+HandleCmd('py', cmd)
+HandleCmd('hp', hp)
+HandleCmd('sp', spawn)
+HandleCmd("msg", msg)
+HandleCmd('say', say)
 
 
-HandleClientCmd('py', cmd)
-HandleClientCmd('hp', hp)
-HandleClientCmd('sp', spawn)
-HandleClientCmd("msg", msg)
+def death(data):
+	eng.AlertMessage(at_console, '{}\n'.format(data))
+
+HandleMsg('DeathMsg', death)

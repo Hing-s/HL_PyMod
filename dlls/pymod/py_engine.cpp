@@ -23,29 +23,24 @@ FUNC(AlertMessage)
 
 FUNC(send_message) {
     PyObject *msg;
+    int dest;
+    const char *msg_type;
+    PyObject *origin, *owner;
 
-    if(!PyArg_ParseTuple(args, "O", &msg))
+
+    if(!PyArg_ParseTuple(args, "isOOO", &dest, &msg_type, &origin, &owner, &msg))
         return NULL;
 
-    if(PyObject_Size(msg) > 1) {
-        int dest;
-        const char *msg_type;
-        PyObject *origin, *owner;
-        PyObject *begin = PyObject_GetItem(msg, PyLong_FromLong(0));
-
-        if(!PyArg_ParseTuple(begin, "isOO", &dest, &msg_type, &origin, &owner))
-            return NULL;
-
+    if(PyObject_Size(msg) > 0) {
         Vector VecOrigin;
-        bool VecSetted = SetVector(VecOrigin, origin);
         edict_t *pEntOwner = ParseEnt(owner);
 
-        if(VecSetted)
+        if(SetVector(VecOrigin, origin))
             MESSAGE_BEGIN(dest, GET_MSG_ID(msg_type), VecOrigin, pEntOwner);
         else
             MESSAGE_BEGIN(dest, GET_MSG_ID(msg_type));
 
-        for(int i = 1; i < PyObject_Size(msg); i++) {
+        for(int i = 0; i < PyObject_Size(msg); i++) {
             PyObject *index  = PyLong_FromLong(i);
             PyObject *data = PyObject_GetItem(msg, index);
             const char *type;
@@ -57,19 +52,19 @@ FUNC(send_message) {
             }
 
             if(!strcmp("byte", type))
-                WRITE_BYTE((byte)PyLong_AsLong(value));
+                WRITE_BYTE(PyLong_AsLong(value));
             else if(!strcmp("char", type))
-                WRITE_CHAR((char)PyLong_AsLong(value));
+                WRITE_CHAR(PyLong_AsLong(value));
             else if(!strcmp("short", type))
-                WRITE_SHORT((short)PyLong_AsLong(value));
+                WRITE_SHORT(PyLong_AsLong(value));
             else if(!strcmp("long", type))
                 WRITE_LONG(PyLong_AsLong(value));
             else if(!strcmp("angle", type))
-                WRITE_ANGLE((PyLong_AsLong(value)));
+                WRITE_ANGLE((float)PyFloat_AsDouble(value));
             else if(!strcmp("coord", type))
-                WRITE_COORD((PyLong_AsLong(value)));
+                WRITE_COORD((float)PyLong_AsLong(value));
             else if(!strcmp("string", type))
-                WRITE_STRING((PyUnicode_AsUTF8(value)));
+                WRITE_STRING(PyUnicode_AsUTF8(value));
             else if(!strcmp("entity", type))
             {
                 edict_t *pEnt = ParseEnt(value);
@@ -80,7 +75,6 @@ FUNC(send_message) {
 
               Py_DECREF(data);
               Py_DECREF(index);
-              Py_DECREF(begin);
               Py_DECREF(origin);
               Py_DECREF(owner);
         }
@@ -93,7 +87,7 @@ FUNC(send_message) {
     return Py_None;
 }
 
-FUNC(get_user_msg_id) {
+FUNC(get_msg_id) {
     const char *msg;
 
     if(!PyArg_ParseTuple(args, "s", &msg))
@@ -162,9 +156,7 @@ FUNC(SetOrigin) {
 
     if(entity) {
         Vector VecOrigin = g_vecZero;
-        bool VecSetted = SetVector(VecOrigin, origin);
-
-        if(VecSetted)
+        if(SetVector(VecOrigin, origin))
             SET_ORIGIN(entity, VecOrigin);
     }
 
@@ -267,14 +259,22 @@ FUNC(get)
     Py_DECREF(ent);
 
     if(entity)
+    {
         if IS(health)
                 return PyFloat_FromDouble((double)entity->v.health);
-        if IS(origin)
+        else if IS(origin)
                 return GetVector(entity->v.origin);
-        if IS(velocity)
+        else if IS(velocity)
                 return GetVector(entity->v.velocity);
-        if IS(armor)
+        else if IS(armor)
                 return PyFloat_FromDouble((double)entity->v.armorvalue);
+        else if IS(view_ofs)
+                return GetVector(entity->v.view_ofs);
+        else if IS(classname)
+                return PyUnicode_FromString(STRING(entity->v.classname));
+        else if IS(punchangle)
+                return GetVector(entity->v.punchangle);
+    }
 
      return Py_None;
 }
@@ -292,16 +292,39 @@ FUNC(set)
     Py_DECREF(ent);
 
    if(entity)
+   {
         if IS(health)
-                 entity->v.health = (float)PyFloat_AsDouble(value);
-        if IS(origin)
+                entity->v.health = (float)PyFloat_AsDouble(value);
+        else if IS(origin)
                 SetVector(entity->v.origin, value);
-        if IS(velocity)
+        else if IS(velocity)
                 SetVector(entity->v.velocity, value);
-        if IS(armor)
+        else if IS(armor)
                 entity->v.armorvalue = (float)PyFloat_AsDouble(value);
-
+        else if IS(view_ofs)
+                SetVector(entity->v.view_ofs, value);
+        else if IS(classname)
+                entity->v.classname = MAKE_STRING(PyUnicode_AsUTF8(value));
+        else if IS(punchangle)
+                SetVector(entity->v.punchangle, value);
+   }
      return Py_None;
+}
+
+FUNC(MakeVector) {
+    PyObject *coords;
+
+    if(!PyArg_ParseTuple(args, "O", &coords))
+        return Py_None;
+
+    Vector Vec;
+    if(SetVector(Vec, coords))
+    {
+        MAKE_VECTORS(Vec);
+        return Py_True;
+    }
+
+    return Py_False;
 }
 
 FUNC(get_player_by_name) {
@@ -340,7 +363,7 @@ FUNC(ClientCmd) {
     PyObject *ent;
     const char *cmd;
 
-    if(!PyArg_ParseTuple(args, "ks", &ent, &cmd))
+    if(!PyArg_ParseTuple(args, "Os", &ent, &cmd))
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
@@ -348,6 +371,55 @@ FUNC(ClientCmd) {
 
     if(entity)
         CLIENT_COMMAND(entity, cmd);
+
+    return Py_None;
+}
+
+FUNC(is_player) {
+    PyObject *ent;
+
+    if(!PyArg_ParseTuple(args, "O", &ent))
+        return NULL;
+
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
+
+    if(entity)
+        return PyBool_FromLong(CBaseEntity::Instance(entity)->IsPlayer());
+
+    return Py_False;
+}
+
+FUNC(is_valid)
+{
+    PyObject *ent;
+
+    if(!PyArg_ParseTuple(args, "O", &ent))
+        return NULL;
+
+    edict_t *entity = ParseEnt(ent);
+    Py_DECREF(ent);
+
+    if(entity)
+        return Py_True;
+
+    return Py_False;
+}
+
+FUNC(globals_get) {
+    const char *var;
+
+    if(!PyArg_ParseTuple(args, "s", &var))
+        return Py_None;
+
+    if IS(time)
+            return PyFloat_FromDouble((double)gpGlobals->time);
+    else if IS(v_forward)
+            return GetVector(gpGlobals->v_forward);
+    else if IS(v_up)
+            return GetVector(gpGlobals->v_up);
+    else if IS(v_right)
+            return GetVector(gpGlobals->v_right);
 
     return Py_None;
 }
@@ -377,8 +449,12 @@ void PyInitEngine() {
     REG(cvar_set_float, "");
     REG(cvar_set_string, "");
     REG(find_entity_by_classname, "");
-    REG(get_user_msg_id, "");
+    REG(get_msg_id, "");
     REG(send_message, "");
+    REG(is_player, "");
+    REG(is_valid, "");
+    REG(globals_get, "");
+    REG(MakeVector, "");
 
     CreateEngineModule();
 }

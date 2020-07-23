@@ -7,6 +7,7 @@ def SET_GLOBAL(val, var):
 	del var
 
 SET_GLOBAL('CL_CMDS', [])
+SET_GLOBAL('MSG_EVENTS', [])
 SET_GLOBAL('MODULES_PATH', './py/modules')
 
 def GET_GLOBAL(val):
@@ -15,14 +16,6 @@ def GET_GLOBAL(val):
 
 	return None
 
-
-class ClientCmdHandler:
-	def __init__(self, cmd, func):
-		self.cmd = cmd
-		self.func = func
-
-def HandleClientCmd(cmd, func):
-	CL_CMDS.append(ClientCmdHandler(cmd, func))
 
 def load_plugins():
 	sys.path.append(MODULES_PATH)
@@ -44,11 +37,16 @@ def GetCmdFunc(cmd):
 	else:
 		return None
 
+def RunMsgHandlers(index, data):
+	handlers = [h for h in MSG_EVENTS if eng.get_msg_id(h.msg) == index]
+
+	for h in handlers:
+		h.func(data)
 
 SET_GLOBAL('SET_GLOBAL', SET_GLOBAL)
 SET_GLOBAL('GET_GLOBAL', GET_GLOBAL)
-SET_GLOBAL('HandleClientCmd', HandleClientCmd)
 SET_GLOBAL('GetCmdFunc', GetCmdFunc)
+SET_GLOBAL('RunMsgHandlers', RunMsgHandlers)
 
 import utils
 
