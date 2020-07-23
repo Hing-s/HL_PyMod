@@ -1,8 +1,12 @@
 #include "pymod/py_engine.h"
 #include "cbase.h"
 
-#define REG(F, H) PyRegister(#F, &F, H)
+int msgs_count = 0;
+msg_t MSGS[197];
 
+
+#define REG(F, H) PyRegister(#F, &F, H)
+#define IS(val) (!strcmp(var, #val))
 
 FUNC(AlertMessage)
 {
@@ -17,6 +21,136 @@ FUNC(AlertMessage)
     return Py_None;
 }
 
+FUNC(send_message) {
+    PyObject *msg;
+
+    if(!PyArg_ParseTuple(args, "O", &msg))
+        return NULL;
+
+    if(PyObject_Size(msg) > 1) {
+        int dest;
+        const char *msg_type;
+        PyObject *origin, *owner;
+        PyObject *begin = PyObject_GetItem(msg, PyLong_FromLong(0));
+
+        if(!PyArg_ParseTuple(begin, "isOO", &dest, &msg_type, &origin, &owner))
+            return NULL;
+
+        Vector VecOrigin;
+        bool VecSetted = SetVector(VecOrigin, origin);
+        edict_t *pEntOwner = ParseEnt(owner);
+
+        if(VecSetted)
+            MESSAGE_BEGIN(dest, GET_MSG_ID(msg_type), VecOrigin, pEntOwner);
+        else
+            MESSAGE_BEGIN(dest, GET_MSG_ID(msg_type));
+
+        for(int i = 1; i < PyObject_Size(msg); i++) {
+            PyObject *index  = PyLong_FromLong(i);
+            PyObject *data = PyObject_GetItem(msg, index);
+            const char *type;
+            PyObject *value;
+
+            if(!PyArg_ParseTuple(data, "sO", &type, &value)) {
+                MESSAGE_END();
+                return NULL;
+            }
+
+            if(!strcmp("byte", type))
+                WRITE_BYTE((byte)PyLong_AsLong(value));
+            else if(!strcmp("char", type))
+                WRITE_CHAR((char)PyLong_AsLong(value));
+            else if(!strcmp("short", type))
+                WRITE_SHORT((short)PyLong_AsLong(value));
+            else if(!strcmp("long", type))
+                WRITE_LONG(PyLong_AsLong(value));
+            else if(!strcmp("angle", type))
+                WRITE_ANGLE((PyLong_AsLong(value)));
+            else if(!strcmp("coord", type))
+                WRITE_COORD((PyLong_AsLong(value)));
+            else if(!strcmp("string", type))
+                WRITE_STRING((PyUnicode_AsUTF8(value)));
+            else if(!strcmp("entity", type))
+            {
+                edict_t *pEnt = ParseEnt(value);
+
+                if(pEnt)
+                    WRITE_ENTITY(ENTINDEX(pEnt));
+            }
+
+              Py_DECREF(data);
+              Py_DECREF(index);
+              Py_DECREF(begin);
+              Py_DECREF(origin);
+              Py_DECREF(owner);
+        }
+
+        MESSAGE_END();
+    }
+
+    Py_DECREF(msg);
+
+    return Py_None;
+}
+
+FUNC(get_user_msg_id) {
+    const char *msg;
+
+    if(!PyArg_ParseTuple(args, "s", &msg))
+        return NULL;
+
+     return PyLong_FromLong(GET_MSG_ID(msg));
+}
+FUNC(find_entity_by_classname)
+{
+    PyObject *StartEnt;
+    const char *classname;
+
+    if(!PyArg_ParseTuple(args, "Os", &StartEnt, &classname))
+        return NULL;
+
+
+    edict_t *pStartEnt = NULL;
+    edict_t *pentEntity;
+
+    if(PyObject_IsTrue(StartEnt))
+         pStartEnt = ParseEnt(StartEnt);
+
+    if(pStartEnt)
+        pentEntity = FIND_ENTITY_BY_STRING(pStartEnt, "classname", classname);
+    else
+        pentEntity = FIND_ENTITY_BY_STRING(NULL, "classname", classname);
+
+    if(!FNullEnt(pentEntity))
+        return Py_BuildValue("(ii)", ENTINDEX(pentEntity), pentEntity->serialnumber);
+
+    return Py_None;
+}
+
+FUNC(cvar_set_float) {
+    const char *cvar;
+    float value;
+
+    if(!PyArg_ParseTuple(args, "sf", &cvar, &value))
+        return NULL;
+
+    CVAR_SET_FLOAT(cvar, value);
+
+    return Py_None;
+}
+
+FUNC(cvar_set_string) {
+    const char *cvar, *value;
+
+    if(!PyArg_ParseTuple(args, "ss", &cvar, &value))
+        return NULL;
+
+    CVAR_SET_STRING(cvar, value);
+
+    return Py_None;
+}
+
+
 FUNC(SetOrigin) {
     PyObject *ent, *origin;
 
@@ -27,7 +161,11 @@ FUNC(SetOrigin) {
     Py_DECREF(ent);
 
     if(entity) {
+        Vector VecOrigin = g_vecZero;
+        bool VecSetted = SetVector(VecOrigin, origin);
 
+        if(VecSetted)
+            SET_ORIGIN(entity, VecOrigin);
     }
 
     return  Py_None;
@@ -49,18 +187,13 @@ FUNC(CreateEntity) {
 
         if(owner != Py_None) {
             edict_t *pEntOwner = ParseEnt(owner);
-            Py_DECREF(owner);
 
-            if(pEntOwner)
+            if(pEntOwner != NULL)
                 pEnt->v.owner = pEntOwner;
         }
 
-
-        PyObject *pyEnt = Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
-
         DispatchSpawn(pEnt);
-
-        return pyEnt;
+        return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
     }
 
     return Py_None;
@@ -121,8 +254,6 @@ FUNC(SetModel)
 
     return Py_None;
 }
-
-#define IS(val) (!strcmp(var, #val))
 
 FUNC(get)
 {
@@ -224,7 +355,6 @@ FUNC(ClientCmd) {
 
 void CreateEngineModule() {
     PyObject *builtins = PyImport_ImportModule("builtins");
-
     PyModuleDef eng_funcs = {PyModuleDef_HEAD_INIT, "eng", NULL, -1, methods, NULL, NULL, NULL, NULL};
     PyObject *eng = PyModule_Create(&eng_funcs);
 
@@ -244,6 +374,11 @@ void PyInitEngine() {
     REG(ServerCmd, "");
     REG(ClientCmd, "");
     REG(SetOrigin, "");
+    REG(cvar_set_float, "");
+    REG(cvar_set_string, "");
+    REG(find_entity_by_classname, "");
+    REG(get_user_msg_id, "");
+    REG(send_message, "");
 
     CreateEngineModule();
 }

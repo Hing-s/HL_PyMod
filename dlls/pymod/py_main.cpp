@@ -1,5 +1,8 @@
 #include "pymod/py_main.h"
 
+extern int msgs_count;
+extern msg_t MSGS[197];
+
 void SetPath() {
     PyObject *PATH = PyList_New(0);
     PyList_Append(PATH, PyUnicode_FromString("py/PySDK/"));
@@ -41,4 +44,17 @@ bool PyClientCommand(edict_t *pEnt, const char *pcmd, const char *args) {
     }
 
     return false;
+}
+
+int REG_USER_MSG_ID(const char *msg, int size) {
+    int id = REG_USER_MSG(msg, size);
+
+    msg_t smsg;
+    smsg.id = id;
+    smsg.msg = msg;
+    smsg.size = size;
+    MSGS[msgs_count] = smsg;
+    msgs_count++;
+
+    return id;
 }

@@ -6,6 +6,7 @@
 
 static PyMethodDef methods[MAX_METHODS];
 static int size = 0;
+void PyInitEngine();
 
 #define FUNC(X) PyObject *X(PyObject *self, PyObject *args)
 
@@ -138,13 +139,18 @@ static void PyRegister(const char *name, PyObject *(*function) (PyObject*, PyObj
     size++;
 }
 
-static void SetVector(Vector &vec, PyObject *coords) {
+static bool SetVector(Vector &vec, PyObject *coords) {
     float x, y, z;
 
+    if(PyObject_Not(coords))
+        return false;
+
     if(!PyArg_ParseTuple(coords, "fff", &x, &y, &z))
-        return;
+        return false;
 
     vec =  Vector(x, y, z);
+
+    return true;
 }
 
 static PyObject *GetVector(Vector vec) {
@@ -160,6 +166,9 @@ static PyObject *GetVector(Vector vec) {
 static edict_t *ParseEnt(PyObject *ent) {
     int index, serial;
 
+    if(PyObject_Not(ent))
+        return NULL;
+
     if(PyArg_ParseTuple(ent, "ii", &index, &serial)) {
         edict_t *pEnt = INDEXENT(index);
 
@@ -171,4 +180,21 @@ static edict_t *ParseEnt(PyObject *ent) {
     return NULL;
 }
 
-void PyInitEngine();
+typedef struct msg_s {
+    int id;
+    const char *msg;
+    int size;
+} msg_t;
+
+extern int msgs_count;
+extern msg_t MSGS[197];
+
+static int GET_MSG_ID(const char *msg) {
+    for(int i = 0; i < 196; i++)
+        if(MSGS[i].id != 0)
+            if(!strcmp(msg, MSGS[i].msg))
+                return MSGS[i].id;
+
+    return -1;
+}
+

@@ -17,11 +17,10 @@
 #include "shake.h"
 
 extern bool PyClientCommand(edict_t *, const char *, const char *);
+extern int REG_USER_MSG_ID(const char *, int);
 
-extern int GET_REG_MSG_ID(const char *name);
-
-//#undef REG_USER_MSG
-//#define REG_USER_MSG(a, b) GET_REG_MSG_ID(a);
+#undef REG_USER_MSG
+#define REG_USER_MSG(a, b) REG_USER_MSG_ID(a, b);
 
 extern int debug_engine;
 extern bool speechSynthesis;

@@ -19,6 +19,15 @@ def spawn(ent, cmd, args):
 
 	eng.AlertMessage(1, "OK\n")
 
+def msg(ent, cmd, args):
+	msg = [(2, 'HudText', None, None),
+		('string', 'Test')
+	]
+
+	eng.send_message(msg)
+
+
 HandleClientCmd('py', cmd)
 HandleClientCmd('hp', hp)
 HandleClientCmd('sp', spawn)
+HandleClientCmd("msg", msg)
