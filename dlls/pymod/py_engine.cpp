@@ -87,6 +87,34 @@ FUNC(send_message) {
     return Py_None;
 }
 
+FUNC(GetPlayerAuthId) {
+    PyObject *ent;
+
+    if(!PyArg_ParseTuple(args, "O", &ent))
+        return NULL;
+
+    edict_t *pEnt = ParseEnt(ent);
+
+    if(pEnt)
+        return PyUnicode_FromString(g_engfuncs.pfnGetPlayerAuthId(pEnt));
+
+    return PyLong_FromLong(-1);
+}
+
+FUNC(GetPlayerWONId) {
+    PyObject *ent;
+
+    if(!PyArg_ParseTuple(args, "O", &ent))
+        return NULL;
+
+    edict_t *pEnt = ParseEnt(ent);
+
+    if(pEnt)
+        return PyLong_FromLong(g_engfuncs.pfnGetPlayerWONId(pEnt));
+
+    return PyLong_FromLong(-1);
+}
+
 FUNC(get_msg_id) {
     const char *msg;
 
@@ -164,7 +192,7 @@ FUNC(SetOrigin) {
 
 }
 
-FUNC(CreateEntity) {
+FUNC(CreateNamedEntity) {
     const char *entity;
     PyObject *origin, *angles, *owner;
 
@@ -256,7 +284,6 @@ FUNC(get)
         return Py_None;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
     if(entity)
     {
@@ -274,6 +301,8 @@ FUNC(get)
                 return PyUnicode_FromString(STRING(entity->v.classname));
         else if IS(punchangle)
                 return GetVector(entity->v.punchangle);
+        else if IS(netname)
+                return PyUnicode_FromString(STRING(entity->v.netname));
     }
 
      return Py_None;
@@ -289,7 +318,6 @@ FUNC(set)
         return Py_None;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
    if(entity)
    {
@@ -367,10 +395,18 @@ FUNC(ClientCmd) {
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
     if(entity)
         CLIENT_COMMAND(entity, cmd);
+
+    return Py_None;
+}
+
+FUNC(CreateEntity) {
+    edict_t *pEnt = CREATE_ENTITY();
+
+    if(pEnt)
+        return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
 
     return Py_None;
 }
@@ -382,7 +418,6 @@ FUNC(is_player) {
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
     if(entity)
         return PyBool_FromLong(CBaseEntity::Instance(entity)->IsPlayer());
@@ -398,7 +433,6 @@ FUNC(is_valid)
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
     if(entity)
         return Py_True;
@@ -425,6 +459,35 @@ FUNC(globals_get) {
 }
 
 
+FUNC(dispatch_spawn) {
+    PyObject *ent;
+
+    if(!PyArg_ParseTuple(args, "O", &ent))
+        return NULL;
+
+    edict_t *entity = ParseEnt(ent);
+
+    if(entity)
+        return PyBool_FromLong(DispatchSpawn(entity));
+
+    return Py_False;
+}
+
+FUNC(get_entity_by_index) {
+    int index;
+
+    if(!PyArg_ParseTuple(args, "i", &index))
+        return NULL;
+
+    edict_t *pEnt = INDEXENT(index);
+
+    if(pEnt)
+        return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
+
+    return Py_None;
+}
+
+
 void CreateEngineModule() {
     PyObject *builtins = PyImport_ImportModule("builtins");
     PyModuleDef eng_funcs = {PyModuleDef_HEAD_INIT, "eng", NULL, -1, methods, NULL, NULL, NULL, NULL};
@@ -440,7 +503,7 @@ void PyInitEngine() {
     REG(SetModel, "");
     REG(set, "");
     REG(get, "");
-    REG(CreateEntity, "");
+    REG(CreateNamedEntity, "");
     REG(RemoveEntity, "");
     REG(get_player_by_name, "");
     REG(ServerCmd, "");
@@ -455,6 +518,11 @@ void PyInitEngine() {
     REG(is_valid, "");
     REG(globals_get, "");
     REG(MakeVector, "");
+    REG(GetPlayerAuthId, "");
+    REG(GetPlayerWONId, "");
+    REG(CreateEntity, "");
+    REG(dispatch_spawn, "");
+    REG(get_entity_by_index, "");
 
     CreateEngineModule();
 }

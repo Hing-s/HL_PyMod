@@ -8,17 +8,10 @@ def cmd(ent, cmd, args):
 
 
 def hp(ent, cmd, args):
-	pev = ENT(ent).pev
-	pev.health = float(args)
-
+	ENT(ent).pev.health = float(args)
 	return True
 
 def spawn(ent, cmd, args):
-	pev = ENT(ent).pev
-	ent = eng.CreateEntity(args, pev.origin, pev.angles, 0)
-
-	eng.AlertMessage(1, "OK\n")
-
 	return True
 
 def msg(ent, cmd, args):
@@ -29,7 +22,9 @@ def msg(ent, cmd, args):
 	return True
 
 def say(ent, cmd, args):
-	if(args.strip('"') == 'test'):
+	args = args.strip('"')
+	
+	if(args == 'test'):
 		hp(ent, cmd, 100)
 		return True
 
@@ -37,12 +32,13 @@ def say(ent, cmd, args):
 
 HandleCmd('py', cmd)
 HandleCmd('hp', hp)
-HandleCmd('sp', spawn)
+HandleCmd('spawn', spawn)
 HandleCmd("msg", msg)
 HandleCmd('say', say)
 
 
 def death(data):
 	eng.AlertMessage(at_console, '{}\n'.format(data))
+	ALERT(at_console, eng.CreateNamedEntity('weapon_rpg', ENTINDEX(data[1]).pev.origin, None, None))
 
 HandleMsg('DeathMsg', death)

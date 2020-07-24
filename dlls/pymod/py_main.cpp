@@ -101,12 +101,6 @@ int REG_USER_MSG_ID(const char *msg, int size) {
 void LIB_MESSAGE_BEGIN(int dest, int type, const float *flOrigin, edict_t *pEntOwner) {
     if(!MessageBuffer)
         MessageBuffer = PyList_New(0);
-    else
-        for(int i = 0; i < PyList_Size(MessageBuffer); i++) {
-            PyObject *item = PyLong_FromLong(0);
-            PyObject_DelItem(MessageBuffer, item);
-            Py_DECREF(item);
-        }
 
     msg_type = type;
     (*ENG_MESSAGE_BEGIN)(dest, type, flOrigin, pEntOwner);
@@ -151,7 +145,11 @@ void LIB_WRITE_STRING(const char *value) {
 void LIB_MESSAGE_END() {
     PyObject *builtins = PyImport_ImportModule("builtins");
     PyObject *run_hadlers = PyObject_GetAttrString(builtins, "RunMsgHandlers");
+
     PyObject_CallObject(run_hadlers, Py_BuildValue("iO", msg_type, MessageBuffer));
+    Py_DECREF(MessageBuffer);
+
+    MessageBuffer = NULL;
 
     ENG_MESSAGE_END();
 }
