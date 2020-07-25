@@ -1,8 +1,8 @@
 def cmd(ent, cmd, args):
 	try:
-		eng.AlertMessage(1, '{}\n'.format(eval(args)))
+		ALERT(at_console, str(eval(args)))
 	except Exception as e:
-		eng.AlertMessage(1, '{}\n'.format(e))
+		ALERT(at_console, e)
 
 	return True
 
@@ -20,7 +20,7 @@ def spawn(ent, cmd, args):
 	return True
 
 def msg(ent, cmd, args):
-	eng.send_message(2, 'HudText', None, None, (
+	eng.send_message(2, MSG('HudText'), None, None, (
 		WRITE_STRING('TEST'),
 	))
 
@@ -44,14 +44,21 @@ HandleCmd('say', say)
 class CustomEnt(ENT):
 	def __init__(self, ent):
 		super().__init__(ent)
+
 		LinkEntToObject(self.edict, self)
 		self.spawn()
 
 		eng.PrecacheModel('models/zombie.mdl')
 		eng.SetModel(self.edict, 'models/zombie.mdl')
 
+		self.pev.movetype = 6
+		self.pev.solid = 3
 		self.pev.classname = '@my_ent'
 		self.pev.nextthink = gpGlobals.time + 0.1
+
+	def spawn(self):
+		self.spawn_time = gpGlobals.time
+		super().spawn()
 
 	def touch(self, other):
 		pass
@@ -62,7 +69,10 @@ class CustomEnt(ENT):
 	def think(self):
 		self.pev.nextthink = gpGlobals.time + 0.1
 
-		ALERT(at_console, "ITS ALIVE!!!1")
+		if(self.spawn_time > 0 and gpGlobals.time - self.spawn_time > 5):
+			eng.SetSize(self.edict, ( -16, -16, 0 ), ( 16, 16, 72 ))
+			ALERT(at_console, "ITS ALIVE!!!1")
+			self.spawn_time = -1
 
 def death(data):
 	eng.AlertMessage(at_console, '{}\n'.format(data))

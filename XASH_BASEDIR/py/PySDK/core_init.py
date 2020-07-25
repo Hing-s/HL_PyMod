@@ -38,35 +38,35 @@ def GetCmdFunc(cmd):
 		return None
 
 def RunMsgHandlers(index, data):
-	handlers = [h for h in MSG_EVENTS if eng.get_msg_id(h.msg) == index]
+	handlers = [h for h in MSG_EVENTS if (MSG(h.msg) if isinstance(h.msg, str) else h.msg) == index]
 
 	for h in handlers:
 		h.func(data)
 
 def DispatchTouch(ent, pEnt, other):
 	if pEnt:
-		pEnt[0].class_object.touch(other)
+		pEnt[0].touch(other)
 	else:
 		ENT(ent).touch(other)
 
 def DispatchUse(ent, pEnt, other):
 	if pEnt:
-		pEnt[0].class_object.use(other)
+		pEnt[0].use(other)
 	else:
 		ENT(ent).use(other)
 
 def DispathThink(ent, pEnt):
 	if pEnt:
-		pEnt[0].class_object.think()
+		pEnt[0].think()
 	else:
 		ENT(ent).think()
 
 def RunDispatch(type, args):
 	ent = args[0]
-	pEnt = [e for e in LINKED_ENTS if e.ent == ent]
+	pEnt = [e for e in LINKED_ENTS if e.edict == ent]
 
-	if pEnt and not ENT(pEnt[0].ent).is_valid():
-		return LINKED_ENTS.remove(pEnt)
+	if pEnt and not pEnt[0].is_valid():
+		return LINKED_ENTS.remove(pEnt[0])
 
 	if type == 'touch':
 		DispatchTouch(ent, pEnt, *args[1:])	

@@ -24,22 +24,28 @@ FUNC(AlertMessage)
 
 FUNC(send_message) {
     PyObject *msg;
-    int dest;
-    const char *msg_type;
+    int dest, msg_type;
     PyObject *origin, *owner;
 
 
-    if(!PyArg_ParseTuple(args, "isOOO", &dest, &msg_type, &origin, &owner, &msg))
+    if(!PyArg_ParseTuple(args, "iiOOO", &dest, &msg_type, &origin, &owner, &msg))
         return NULL;
+
+    if(msg_type == -1) {
+        ALERT(at_error, "Passed unregistered msg! Return.\n");
+        Py_XDECREF(args);
+        Py_XINCREF(Py_None);
+        return Py_None;
+    }
 
     if(PyObject_Size(msg) > 0) {
         Vector VecOrigin;
         edict_t *pEntOwner = ParseEnt(owner);
 
         if(SetVector(VecOrigin, origin))
-            MESSAGE_BEGIN(dest, GET_MSG_ID(msg_type), VecOrigin, pEntOwner);
+            MESSAGE_BEGIN(dest, msg_type, VecOrigin, pEntOwner);
         else
-            MESSAGE_BEGIN(dest, GET_MSG_ID(msg_type));
+            MESSAGE_BEGIN(dest, msg_type);
 
         for(int i = 0; i < PyObject_Size(msg); i++) {
             PyObject *index  = PyLong_FromLong(i);
@@ -272,7 +278,7 @@ FUNC(SetModel)
     return Py_None;
 }
 
-FUNC(get)
+FUNC(ent_get)
 {
     const char *var;
     PyObject *ent;
@@ -302,12 +308,16 @@ FUNC(get)
                 return PyUnicode_FromString(STRING(entity->v.netname));
         else if IS(nextthink)
                 return PyFloat_FromDouble((double)entity->v.nextthink);
+        else if IS(solid)
+                return PyLong_FromLong(entity->v.solid);
+        else if IS(movetype)
+                return PyLong_FromLong(entity->v.movetype);
     }
 
      return Py_None;
 }
 
-FUNC(set)
+FUNC(ent_set)
 {
     const char *var;
     PyObject *value;
@@ -338,6 +348,10 @@ FUNC(set)
                 SetVector(entity->v.punchangle, value);
         else if IS(nextthink)
                 entity->v.nextthink = (float)PyFloat_AsDouble(value);
+        else if IS(solid)
+                entity->v.solid = PyLong_AsLong(value);
+        else if IS(movetype)
+                entity->v.movetype = PyLong_AsLong(value);
    }
      return Py_None;
 }
@@ -413,6 +427,25 @@ FUNC(CreateEntity) {
     if(pEnt)
         return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
 
+    Py_XINCREF(Py_None);
+    return Py_None;
+}
+
+FUNC(SetSize) {
+    PyObject *ent, *min, *max;
+
+    if(!PyArg_ParseTuple(args, "OOO", &ent, &min, &max))
+        return NULL;
+
+
+    edict_t *pEnt = ParseEnt(ent);
+    Vector VecMin, VecMax;
+
+    if(pEnt && SetVector(VecMin, min), SetVector(VecMax, max))
+        UTIL_SetSize(VARS(pEnt), VecMin, VecMax);
+
+    Py_XDECREF(args);
+    Py_XINCREF(Py_None);
     return Py_None;
 }
 
@@ -574,8 +607,8 @@ void PyInitEngine() {
     REG(PrecacheModel, "");
     REG(PrecacheSound, "");
     REG(SetModel, "");
-    REG(set, "");
-    REG(get, "");
+    REG(ent_set, "");
+    REG(ent_get, "");
     REG(CreateNamedEntity, "");
     REG(RemoveEntity, "");
     REG(get_player_by_name, "");
@@ -598,6 +631,7 @@ void PyInitEngine() {
     REG(get_entity_by_index, "");
     REG(dispatch_touch, "");
     REG(dispatch_use, "");
+    REG(SetSize, "");
 
     CreateEngineModule();
 }
