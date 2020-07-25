@@ -7,6 +7,7 @@
 static PyMethodDef methods[MAX_METHODS];
 static int size = 0;
 void PyInitEngine();
+extern DLL_FUNCTIONS other_gFunctionTable;
 
 #define FUNC(X) PyObject *X(PyObject *self, PyObject *args)
 
@@ -146,7 +147,10 @@ static bool SetVector(Vector &vec, PyObject *coords) {
         return false;
 
     if(!PyArg_ParseTuple(coords, "fff", &x, &y, &z))
+    {
+        PyErr_Clear();
         return false;
+    }
 
     vec =  Vector(x, y, z);
 
@@ -177,6 +181,7 @@ static edict_t *ParseEnt(PyObject *ent) {
 
     }
 
+    PyErr_Clear();
     return NULL;
 }
 
@@ -197,4 +202,3 @@ static int GET_MSG_ID(const char *msg) {
 
     return -1;
 }
-

@@ -15,10 +15,10 @@
 #include "h_export.h"
 #include "cbase.h"
 #include "shake.h"
+#include "../Python/Include/Python.h"
 
 extern bool PyClientCommand(edict_t *, const char *, const char *);
 extern int REG_USER_MSG_ID(const char *, int);
-
 #undef REG_USER_MSG
 #define REG_USER_MSG(a, b) REG_USER_MSG_ID(a, b);
 
@@ -209,21 +209,102 @@ int DispatchSpawn( edict_t *pent )
 
 void DispatchThink( edict_t *pent )
 {
+    const char *classname = STRING(pent->v.classname);
+
+    if(classname[0] == '@')
+    {
+        PyObject *builtins = PyImport_ImportModule("builtins");
+
+        if(builtins) {
+            Py_XINCREF(builtins);
+
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
+            PyObject *args = Py_BuildValue("s((ii))", "think", ENTINDEX(pent), pent->serialnumber);
+            Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+
+            Py_XINCREF(RunDispatch);
+            Py_XDECREF(args);
+        }
+
+        return;
+    }
+
    (*other_gFunctionTable.pfnThink)(pent);
 }
 
 void DispatchUse( edict_t *pentUsed, edict_t *pentOther )
 {
+    const char *classname = STRING(pentUsed->v.classname);
+
+    if(classname[0] == '@')
+    {
+
+        PyObject *builtins = PyImport_ImportModule("builtins");
+
+        if(builtins) {
+            Py_XINCREF(builtins);
+
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
+            PyObject *args = Py_BuildValue("s((ii)(ii))", "use", ENTINDEX(pentUsed), pentUsed->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
+            Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+
+            Py_XINCREF(RunDispatch);
+            Py_XDECREF(args);
+        }
+
+        return;
+    }
+
    (*other_gFunctionTable.pfnUse)(pentUsed, pentOther);
 }
 
 void DispatchTouch( edict_t *pentTouched, edict_t *pentOther )
 {
+   const char *classname = STRING(pentTouched->v.classname);
+
+   if(classname[0] == '@')
+   {
+       PyObject *builtins = PyImport_ImportModule("builtins");
+
+       if(builtins) {
+           Py_XINCREF(builtins);
+
+           PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
+           PyObject *args = Py_BuildValue("s((ii)(ii))", "touch", ENTINDEX(pentTouched), pentTouched->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
+           Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+
+           Py_XINCREF(RunDispatch);
+           Py_XDECREF(args);
+       }
+
+       return;
+   }
+
    (*other_gFunctionTable.pfnTouch)(pentTouched, pentOther);
 }
 
 void DispatchBlocked( edict_t *pentBlocked, edict_t *pentOther )
 {
+    const char *classname = STRING(pentBlocked->v.classname);
+
+    if(classname[0] == '@')
+    {
+        PyObject *builtins = PyImport_ImportModule("builtins");
+
+        if(builtins) {
+            Py_XINCREF(builtins);
+
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
+            PyObject *args = Py_BuildValue("s((ii)(ii))", "block", ENTINDEX(pentBlocked), pentBlocked->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
+            Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+
+            Py_XINCREF(RunDispatch);
+            Py_XDECREF(args);
+        }
+
+        return;
+    }
+
    (*other_gFunctionTable.pfnBlocked)(pentBlocked, pentOther);
 }
 
@@ -244,6 +325,26 @@ int DispatchRestore( edict_t *pent, SAVERESTOREDATA *pSaveData, int globalEntity
 
 void DispatchObjectCollsionBox( edict_t *pent )
 {
+    const char *classname = STRING(pent->v.classname);
+
+    if(classname[0] == '@')
+    {
+        PyObject *builtins = PyImport_ImportModule("builtins");
+
+        if(builtins) {
+            Py_XINCREF(builtins);
+
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
+            PyObject *args = Py_BuildValue("s((ii))", "collbox", ENTINDEX(pent), pent->serialnumber);
+            PyObject_CallObject(RunDispatch, args);
+
+            Py_XINCREF(RunDispatch);
+            Py_XDECREF(args);
+        }
+
+        return;
+    }
+
    (*other_gFunctionTable.pfnSetAbsBox)(pent);
 }
 

@@ -4,7 +4,6 @@
 int msgs_count = 0;
 msg_t MSGS[197];
 
-
 #define REG(F, H) PyRegister(#F, &F, H)
 #define IS(val) (!strcmp(var, #val))
 
@@ -18,6 +17,8 @@ FUNC(AlertMessage)
 
     ALERT((ALERT_TYPE)type, message);
 
+    Py_XDECREF(args);
+    Py_XINCREF(Py_None);
     return Py_None;
 }
 
@@ -82,8 +83,7 @@ FUNC(send_message) {
         MESSAGE_END();
     }
 
-    Py_DECREF(msg);
-
+    Py_XDECREF(msg);
     return Py_None;
 }
 
@@ -130,7 +130,6 @@ FUNC(find_entity_by_classname)
 
     if(!PyArg_ParseTuple(args, "Os", &StartEnt, &classname))
         return NULL;
-
 
     edict_t *pStartEnt = NULL;
     edict_t *pentEntity;
@@ -180,7 +179,6 @@ FUNC(SetOrigin) {
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
     if(entity) {
         Vector VecOrigin = g_vecZero;
@@ -212,7 +210,7 @@ FUNC(CreateNamedEntity) {
                 pEnt->v.owner = pEntOwner;
         }
 
-        DispatchSpawn(pEnt);
+        //DispatchSpawn(pEnt);
         return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
     }
 
@@ -267,7 +265,6 @@ FUNC(SetModel)
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
     if(entity)
         SET_MODEL(entity, model);
@@ -303,6 +300,8 @@ FUNC(get)
                 return GetVector(entity->v.punchangle);
         else if IS(netname)
                 return PyUnicode_FromString(STRING(entity->v.netname));
+        else if IS(nextthink)
+                return PyFloat_FromDouble((double)entity->v.nextthink);
     }
 
      return Py_None;
@@ -313,6 +312,8 @@ FUNC(set)
     const char *var;
     PyObject *value;
     PyObject *ent;
+
+    Py_XINCREF(Py_None);
 
     if(!PyArg_ParseTuple(args, "OsO", &ent, &var, &value))
         return Py_None;
@@ -335,6 +336,8 @@ FUNC(set)
                 entity->v.classname = MAKE_STRING(PyUnicode_AsUTF8(value));
         else if IS(punchangle)
                 SetVector(entity->v.punchangle, value);
+        else if IS(nextthink)
+                entity->v.nextthink = (float)PyFloat_AsDouble(value);
    }
      return Py_None;
 }
@@ -403,6 +406,8 @@ FUNC(ClientCmd) {
 }
 
 FUNC(CreateEntity) {
+    Py_DECREF(args);
+
     edict_t *pEnt = CREATE_ENTITY();
 
     if(pEnt)
@@ -422,6 +427,7 @@ FUNC(is_player) {
     if(entity)
         return PyBool_FromLong(CBaseEntity::Instance(entity)->IsPlayer());
 
+    Py_XINCREF(Py_False);
     return Py_False;
 }
 
@@ -433,18 +439,26 @@ FUNC(is_valid)
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
+    Py_XDECREF(args);
 
     if(entity)
+    {
+        Py_XINCREF(Py_True);
         return Py_True;
+    }
 
+    Py_XINCREF(Py_False);
     return Py_False;
 }
 
 FUNC(globals_get) {
     const char *var;
+    Py_XINCREF(Py_None);
 
     if(!PyArg_ParseTuple(args, "s", &var))
         return Py_None;
+
+    Py_XDECREF(args);
 
     if IS(time)
             return PyFloat_FromDouble((double)gpGlobals->time);
@@ -468,10 +482,70 @@ FUNC(dispatch_spawn) {
     edict_t *entity = ParseEnt(ent);
 
     if(entity)
-        return PyBool_FromLong(DispatchSpawn(entity));
+        return PyBool_FromLong((*other_gFunctionTable.pfnSpawn)(entity));
 
+    Py_XINCREF(Py_False);
     return Py_False;
 }
+
+FUNC(dispatch_touch) {
+    PyObject *ent, *other;
+
+    if(!PyArg_ParseTuple(args, "OO", &ent, &other))
+        return NULL;
+
+    edict_t *pEnt = ParseEnt(ent);
+    edict_t *pEntOther = ParseEnt(other);
+
+    Py_XDECREF(args);
+    Py_XDECREF(ent);
+    Py_XDECREF(other);
+
+    if(pEnt && pEntOther)
+        (*other_gFunctionTable.pfnTouch)(pEnt, pEntOther);
+
+    Py_XINCREF(Py_None);
+    return Py_None;
+}
+
+FUNC(dispatch_use) {
+    PyObject *ent, *other;
+
+    if(!PyArg_ParseTuple(args, "OO", &ent, &other))
+        return NULL;
+
+    edict_t *pEnt = ParseEnt(ent);
+    edict_t *pEntOther = ParseEnt(other);
+
+    Py_XDECREF(args);
+    Py_XDECREF(ent);
+    Py_XDECREF(other);
+
+    if(pEnt && pEntOther)
+        (*other_gFunctionTable.pfnUse)(pEnt, pEntOther);
+
+    Py_XINCREF(Py_None);
+    return Py_None;
+}
+
+FUNC(dispatch_think) {
+    PyObject *ent;
+
+    if(!PyArg_ParseTuple(args, "O", &ent))
+        return NULL;
+
+    edict_t *pEnt = ParseEnt(ent);
+
+    Py_XDECREF(args);
+    Py_XDECREF(ent);
+
+    if(pEnt)
+        (*other_gFunctionTable.pfnThink)(pEnt);
+
+    Py_XINCREF(Py_None);
+    return Py_None;
+}
+
 
 FUNC(get_entity_by_index) {
     int index;
@@ -486,7 +560,6 @@ FUNC(get_entity_by_index) {
 
     return Py_None;
 }
-
 
 void CreateEngineModule() {
     PyObject *builtins = PyImport_ImportModule("builtins");
@@ -523,6 +596,8 @@ void PyInitEngine() {
     REG(CreateEntity, "");
     REG(dispatch_spawn, "");
     REG(get_entity_by_index, "");
+    REG(dispatch_touch, "");
+    REG(dispatch_use, "");
 
     CreateEngineModule();
 }

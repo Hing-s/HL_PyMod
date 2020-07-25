@@ -1,3 +1,5 @@
+import entity
+
 class ClientCmdHandler:
 	def __init__(self, cmd, func):
 		self.cmd = cmd
@@ -13,39 +15,6 @@ def HandleMsg(msg, func):
 
 def HandleCmd(cmd, func):
 	CL_CMDS.append(ClientCmdHandler(cmd, func))
-
-class entvars(object):
-	def __init__(self, edict):
-		self.edict = edict
-		
-	def __getattr__(self, y):
-		if y == 'edict':
-			return super().__getattribute__(y)
-		
-		return eng.get(self.edict, y)
-	
-	def __setattr__(self, x, y):
-		if x == 'edict':
-			return super().__setattr__(x, y)
-		
-		eng.set(self.edict, x, y)
-	
-class Entity:
-	def __init__(self, edict):
-		self.edict = edict
-		self.pev = entvars(edict)
-
-	def is_player(self):
-		return eng.is_player(self.edict)
-
-	def is_valid(self):
-		return eng.is_valid(self.edict)
-
-	def get_gun_position(self):
-		if not self.is_player():
-			return;
-
-		return (Vector(*self.pev.origin) + Vector(*self.pev.view_ofs)).tuple()
 
 class Vector:
     def __init__(self, x, y, z):
@@ -98,7 +67,6 @@ class GLOBALS:
 
 SET_GLOBAL('HandleCmd', HandleCmd)
 SET_GLOBAL('HandleMsg', HandleMsg)
-SET_GLOBAL('ENT', Entity)
 SET_GLOBAL('at_notice', 0)
 SET_GLOBAL('at_console', 1)
 SET_GLOBAL('at_aiconsole', 2)
@@ -106,7 +74,7 @@ SET_GLOBAL('at_warning', 3)
 SET_GLOBAL('at_error', 4)
 SET_GLOBAL('at_logged', 5)
 SET_GLOBAL('Vector', Vector)
-SET_GLOBAL('globals', GLOBALS())
+SET_GLOBAL('gpGlobals', GLOBALS())
 
 SET_GLOBAL('WRITE_BYTE', lambda x: ('byte', x))
 SET_GLOBAL('WRITE_CHAR', lambda x: ('char', x))
@@ -116,3 +84,6 @@ SET_GLOBAL('WRITE_STRING', lambda x: ('string', x))
 SET_GLOBAL('WRITE_ANGLE', lambda x: ('angle', x))
 SET_GLOBAL('WRITE_COORD', lambda x: ('coord', x))
 SET_GLOBAL('WRITE_ENTITY', lambda x: ('entity', x))
+SET_GLOBAL('ALERT', lambda t, *m: eng.AlertMessage(t, '{}\n'.format(' '.join([str(s) for s in m]))))
+SET_GLOBAL('ENTINDEX', lambda i: ENT(eng.get_entity_by_index(i)))
+SET_GLOBAL('INDEXENT', lambda e: e[0] if isinstance(e, tuple) else e.edict[0])

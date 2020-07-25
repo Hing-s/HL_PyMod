@@ -12,6 +12,11 @@ def hp(ent, cmd, args):
 	return True
 
 def spawn(ent, cmd, args):
+	try:
+		CustomEnt(eng.CreateNamedEntity('info_target', ENT(ent).pev.origin, None, None))
+	except Exception as e:
+		ALERT(at_console, e)
+
 	return True
 
 def msg(ent, cmd, args):
@@ -32,13 +37,39 @@ def say(ent, cmd, args):
 
 HandleCmd('py', cmd)
 HandleCmd('hp', hp)
-HandleCmd('spawn', spawn)
+HandleCmd('ent', spawn)
 HandleCmd("msg", msg)
 HandleCmd('say', say)
 
+class CustomEnt(ENT):
+	def __init__(self, ent):
+		super().__init__(ent)
+		LinkEntToObject(self.edict, self)
+		self.spawn()
+
+		eng.PrecacheModel('models/zombie.mdl')
+		eng.SetModel(self.edict, 'models/zombie.mdl')
+
+		self.pev.classname = '@my_ent'
+		self.pev.nextthink = gpGlobals.time + 0.1
+
+	def touch(self, other):
+		pass
+
+	def use(self, other):
+		ALERT(at_console, "Used by: ", other)
+
+	def think(self):
+		self.pev.nextthink = gpGlobals.time + 0.1
+
+		ALERT(at_console, "ITS ALIVE!!!1")
 
 def death(data):
 	eng.AlertMessage(at_console, '{}\n'.format(data))
-	ALERT(at_console, eng.CreateNamedEntity('weapon_rpg', ENTINDEX(data[1]).pev.origin, None, None))
+
+	try:
+		CustomEnt(eng.CreateNamedEntity('info_target', ENTINDEX(data[1]).pev.origin, None, None))
+	except Exception as e:
+		ALERT(at_console, e)
 
 HandleMsg('DeathMsg', death)

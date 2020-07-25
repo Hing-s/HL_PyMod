@@ -65,7 +65,10 @@ bool PyClientCommand(edict_t *pEnt, const char *pcmd, const char *args) {
     bool ignore = false;
 
     PyObject *builtins = PyImport_ImportModule("builtins");
+    Py_XINCREF(builtins);
+
     PyObject *get_cmd = PyObject_GetAttrString(builtins, "GetCmdFunc");
+    Py_XINCREF(get_cmd);
     PyObject *handler = PyObject_CallObject(get_cmd, Py_BuildValue("(s)", pcmd));
 
     if(handler != Py_None) {
@@ -75,12 +78,12 @@ bool PyClientCommand(edict_t *pEnt, const char *pcmd, const char *args) {
             PyObject *py_args = Py_BuildValue("(ii)ss", ENTINDEX(pEnt), pEnt->serialnumber, pcmd, args);
             ignore = (PyObject_CallObject(func, py_args) == Py_True);
 
-            Py_DECREF(py_args);
-            Py_DECREF(func);
+            Py_XDECREF(py_args);
+            Py_XDECREF(func);
         }
 
-        Py_DECREF(get_cmd);
-        Py_DECREF(handler);
+        Py_XDECREF(get_cmd);
+        Py_XDECREF(handler);
     }
 
     return ignore;
@@ -144,13 +147,15 @@ void LIB_WRITE_STRING(const char *value) {
 
 void LIB_MESSAGE_END() {
     PyObject *builtins = PyImport_ImportModule("builtins");
+    Py_XINCREF(builtins);
+
     PyObject *run_hadlers = PyObject_GetAttrString(builtins, "RunMsgHandlers");
+    Py_XINCREF(run_hadlers);
 
-    PyObject_CallObject(run_hadlers, Py_BuildValue("iO", msg_type, MessageBuffer));
-    Py_DECREF(MessageBuffer);
+    Py_XDECREF(PyObject_CallObject(run_hadlers, Py_BuildValue("iO", msg_type, MessageBuffer)));
 
-    MessageBuffer = NULL;
+    Py_XDECREF(MessageBuffer);
+    MessageBuffer = PyList_New(0);
 
     ENG_MESSAGE_END();
 }
-

@@ -43,10 +43,47 @@ def RunMsgHandlers(index, data):
 	for h in handlers:
 		h.func(data)
 
+def DispatchTouch(ent, pEnt, other):
+	if pEnt:
+		pEnt[0].class_object.touch(other)
+	else:
+		ENT(ent).touch(other)
+
+def DispatchUse(ent, pEnt, other):
+	if pEnt:
+		pEnt[0].class_object.use(other)
+	else:
+		ENT(ent).use(other)
+
+def DispathThink(ent, pEnt):
+	if pEnt:
+		pEnt[0].class_object.think()
+	else:
+		ENT(ent).think()
+
+def RunDispatch(type, args):
+	ent = args[0]
+	pEnt = [e for e in LINKED_ENTS if e.ent == ent]
+
+	if pEnt and not ENT(pEnt[0].ent).is_valid():
+		return LINKED_ENTS.remove(pEnt)
+
+	if type == 'touch':
+		DispatchTouch(ent, pEnt, *args[1:])	
+	elif type == 'use':
+		DispatchUse(ent, pEnt, *args[1:])
+	elif type == 'collbox':
+		pass
+	elif type == 'think':
+		DispathThink(ent, pEnt)
+	else:
+		ALERT(at_error, type, "not implemented")
+
 SET_GLOBAL('SET_GLOBAL', SET_GLOBAL)
 SET_GLOBAL('GET_GLOBAL', GET_GLOBAL)
 SET_GLOBAL('GetCmdFunc', GetCmdFunc)
 SET_GLOBAL('RunMsgHandlers', RunMsgHandlers)
+SET_GLOBAL('RunDispatch', RunDispatch)
 
 import utils
 
