@@ -1,3 +1,5 @@
+SET_GLOBAL('a', [])
+
 def cmd(ent, cmd, args):
 	try:
 		ALERT(at_console, str(eval(args)))
@@ -44,41 +46,51 @@ HandleCmd('say', say)
 class CustomEnt(ENT):
 	def __init__(self, ent):
 		super().__init__(ent)
-
-		LinkEntToObject(self.edict, self)
+		LinkEntToObject(self)
 		self.spawn()
 
+	def spawn(self):
 		eng.PrecacheModel('models/zombie.mdl')
 		eng.SetModel(self.edict, 'models/zombie.mdl')
 
 		self.pev.movetype = 6
-		self.pev.solid = 3
+		self.pev.solid = SOLID_NOT
 		self.pev.classname = '@my_ent'
 		self.pev.nextthink = gpGlobals.time + 0.1
+		self.last_use = 0
 
-	def spawn(self):
-		self.spawn_time = gpGlobals.time
-		super().spawn()
+		self.can_take = 25
 
 	def touch(self, other):
-		pass
+		super().touch(other)
 
 	def use(self, other):
-		ALERT(at_console, "Used by: ", other)
+		user = ENT(other)
+		if not user.is_player() or user.pev.health <= 1:
+			return
+
+		if(gpGlobals.time - self.last_use < 0.5):
+			return
+
+		self.last_use = gpGlobals.time
+		self.can_take -= 1
+		user.pev.health-=1
+
+		if(self.can_take < 0):
+			user.pev.armor += 200
+			ENT_REMOVE(self.edict)
 
 	def think(self):
-		self.pev.nextthink = gpGlobals.time + 0.1
+		self.pev.nextthink = gpGlobals.time + 0.5
 
-		if(self.spawn_time > 0 and gpGlobals.time - self.spawn_time > 5):
-			eng.SetSize(self.edict, ( -16, -16, 0 ), ( 16, 16, 72 ))
-			ALERT(at_console, "ITS ALIVE!!!1")
-			self.spawn_time = -1
+		if(gpGlobals.time - self.last_use > 3):
+			self.can_take = 50
 
 def death(data):
 	eng.AlertMessage(at_console, '{}\n'.format(data))
 
 	try:
-		CustomEnt(eng.CreateNamedEntity('info_target', ENTINDEX(data[1]).pev.origin, None, None))
+		CustomEnt(CREATE_NAMED_ENTITY('info_target', ENTINDEX(data[0]).pev.origin))
 	except Exception as e:
 		ALERT(at_console, e)
 

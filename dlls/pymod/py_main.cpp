@@ -156,7 +156,7 @@ void LIB_MESSAGE_END() {
         Py_XINCREF(builtins);
 
         PyObject *args = Py_BuildValue("iO", msg_type, MessageBuffer);
-        PyObject_CallObject(run_hadlers, args);
+        Py_XDECREF(PyObject_CallObject(run_hadlers, args));
 
         Py_XDECREF(args);
         Py_XINCREF(run_hadlers);

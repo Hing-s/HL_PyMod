@@ -1,6 +1,8 @@
 import builtins
 import sys
 import os
+import gc
+#gc.disable()
 
 def SET_GLOBAL(val, var):
 	setattr(builtins, val, var)
@@ -43,47 +45,83 @@ def RunMsgHandlers(index, data):
 	for h in handlers:
 		h.func(data)
 
-def DispatchTouch(ent, pEnt, other):
-	if pEnt:
-		pEnt[0].touch(other)
-	else:
-		ENT(ent).touch(other)
+def DispatchTouch(pEnt, other):
+	pEnt.touch(other)
 
-def DispatchUse(ent, pEnt, other):
-	if pEnt:
-		pEnt[0].use(other)
-	else:
-		ENT(ent).use(other)
+def DispatchUse(pEnt, other):
+	pEnt.use(other)
 
-def DispathThink(ent, pEnt):
-	if pEnt:
-		pEnt[0].think()
-	else:
-		ENT(ent).think()
+def DispathThink(pEnt):
+	pEnt.think()
 
-def RunDispatch(type, args):
+def PlayerPostThink(pPlayer):
+	try:
+		eng.MakeVector(pPlayer.pev.v_angle)
+		pEnt = pPlayer
+		pClose = None
+		flMaxDot = 0.7
+
+		while True:
+			ent = eng.FindEntityInSphere(pEnt.edict, pPlayer.pev.origin, 64.0)
+
+			if not ent:
+				break
+
+			pEnt = ENT(ent)
+			absmin = Vector(*pEnt.pev.absmin)
+			size = Vector(*pEnt.pev.size)
+			origin = Vector(*pPlayer.pev.origin)
+			view_ofs = Vector(*pPlayer.pev.view_ofs)
+
+			vecLOS = UTIL_ClampVectorToBox((absmin + (size*0.5)) - (origin + view_ofs), size*0.5)
+			flDot = DotProduct(vecLOS , Vector(*gpGlobals.v_forward))
+
+			if(flDot > flMaxDot):
+				pClose = pEnt
+				flMaxDot = flDot
+				
+		if pClose and pClose.pev.classname.startswith('@'):
+			pClose = LINKED_ENTS[pClose.edict[0]] if pClose.edict[0] in LINKED_ENTS else pClose
+			if (pPlayer.pev.button & IN_USE):
+				pClose.use(pPlayer.edict)
+
+
+	except Exception as e:
+		ALERT(at_console, e)
+
+def RunLibFunc(etype, args):
 	ent = args[0]
-	pEnt = [e for e in LINKED_ENTS if e.edict == ent]
 
-	if pEnt and not pEnt[0].is_valid():
-		return LINKED_ENTS.remove(pEnt[0])
+	if 'dispatch' in etype:
+		try:
+			func = etype.split('_')[1]
+			pEnt = LINKED_ENTS[ent[0]] if ent[0] in LINKED_ENTS else None
 
-	if type == 'touch':
-		DispatchTouch(ent, pEnt, *args[1:])	
-	elif type == 'use':
-		DispatchUse(ent, pEnt, *args[1:])
-	elif type == 'collbox':
-		pass
-	elif type == 'think':
-		DispathThink(ent, pEnt)
-	else:
-		ALERT(at_error, type, "not implemented")
+			if pEnt:
+				if not pEnt.is_valid():
+					return LINKED_ENTS.pop(pEnt.edict[0])
+
+				if func == 'touch':
+					DispatchTouch(pEnt, *args[1:])	
+				elif func == 'use':
+					DispatchUse(pEnt, *args[1:])
+				elif func == 'collbox':
+					pass
+				elif func == 'think':
+					DispathThink(pEnt)
+				else:
+					ALERT(at_error, func, "not implemented")
+		except Exception as e:
+			ALERT(at_error, e)
+	elif etype == 'pPostThink':
+		PlayerPostThink(ENT(ent))
+
 
 SET_GLOBAL('SET_GLOBAL', SET_GLOBAL)
 SET_GLOBAL('GET_GLOBAL', GET_GLOBAL)
 SET_GLOBAL('GetCmdFunc', GetCmdFunc)
 SET_GLOBAL('RunMsgHandlers', RunMsgHandlers)
-SET_GLOBAL('RunDispatch', RunDispatch)
+SET_GLOBAL('RunLibFunc', RunLibFunc)
 
 import utils
 

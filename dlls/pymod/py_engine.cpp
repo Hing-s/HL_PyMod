@@ -6,6 +6,7 @@ msg_t MSGS[197];
 
 #define REG(F, H) PyRegister(#F, &F, H)
 #define IS(val) (!strcmp(var, #val))
+#define PY_RETURN_ENT(pEnt) if(!FNullEnt(pEnt)) return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber); else { Py_XINCREF(Py_None); return Py_None; }
 
 FUNC(AlertMessage)
 {
@@ -18,8 +19,7 @@ FUNC(AlertMessage)
     ALERT((ALERT_TYPE)type, message);
 
     Py_XDECREF(args);
-    Py_XINCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(send_message) {
@@ -27,15 +27,13 @@ FUNC(send_message) {
     int dest, msg_type;
     PyObject *origin, *owner;
 
-
     if(!PyArg_ParseTuple(args, "iiOOO", &dest, &msg_type, &origin, &owner, &msg))
         return NULL;
 
     if(msg_type == -1) {
         ALERT(at_error, "Passed unregistered msg! Return.\n");
         Py_XDECREF(args);
-        Py_XINCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     if(PyObject_Size(msg) > 0) {
@@ -90,7 +88,7 @@ FUNC(send_message) {
     }
 
     Py_XDECREF(msg);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(GetPlayerAuthId) {
@@ -149,12 +147,12 @@ FUNC(find_entity_by_classname)
         pentEntity = FIND_ENTITY_BY_STRING(NULL, "classname", classname);
 
     if(!FNullEnt(pentEntity))
-        return Py_BuildValue("(ii)", ENTINDEX(pentEntity), pentEntity->serialnumber);
+        PY_RETURN_ENT(pentEntity);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
-FUNC(cvar_set_float) {
+FUNC(CvarSetFloat) {
     const char *cvar;
     float value;
 
@@ -163,10 +161,11 @@ FUNC(cvar_set_float) {
 
     CVAR_SET_FLOAT(cvar, value);
 
-    return Py_None;
+    Py_XDECREF(args);
+    Py_RETURN_NONE;
 }
 
-FUNC(cvar_set_string) {
+FUNC(CvarSetString) {
     const char *cvar, *value;
 
     if(!PyArg_ParseTuple(args, "ss", &cvar, &value))
@@ -174,9 +173,34 @@ FUNC(cvar_set_string) {
 
     CVAR_SET_STRING(cvar, value);
 
-    return Py_None;
+    Py_XDECREF(args);
+    Py_RETURN_NONE;
 }
 
+FUNC(FindEntityInSphere) {
+    PyObject *StartEnt, *origin;
+    float radius;
+
+    if(!PyArg_ParseTuple(args, "OOf", &StartEnt, &origin, &radius))
+        return NULL;
+
+    edict_t *pStartEnt = NULL;
+    edict_t *pentEntity;
+    Vector VecOrigin;
+
+    if(PyObject_IsTrue(StartEnt))
+         pStartEnt = ParseEnt(StartEnt);
+
+    if(!SetVector(VecOrigin, origin))
+    {
+        Py_XDECREF(args);
+        Py_RETURN_NONE;
+    }
+
+    edict_t *pEnt = FIND_ENTITY_IN_SPHERE(pStartEnt, VecOrigin, radius);
+
+    PY_RETURN_ENT(pEnt);
+}
 
 FUNC(SetOrigin) {
     PyObject *ent, *origin;
@@ -192,8 +216,7 @@ FUNC(SetOrigin) {
             SET_ORIGIN(entity, VecOrigin);
     }
 
-    return  Py_None;
-
+    Py_RETURN_NONE;
 }
 
 FUNC(CreateNamedEntity) {
@@ -217,10 +240,14 @@ FUNC(CreateNamedEntity) {
         }
 
         //DispatchSpawn(pEnt);
-        return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
+        PyObject *RetEnt = Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
+        Py_XDECREF(args);
+        Py_XINCREF(RetEnt);
+        return RetEnt;
     }
 
-    return Py_None;
+    Py_XDECREF(args);
+    Py_RETURN_NONE;
 }
 
 FUNC(RemoveEntity) {
@@ -230,12 +257,11 @@ FUNC(RemoveEntity) {
         return NULL;
 
     edict_t *entity = ParseEnt(ent);
-    Py_DECREF(ent);
 
     if(entity)
         REMOVE_ENTITY(entity);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(PrecacheModel)
@@ -247,7 +273,7 @@ FUNC(PrecacheModel)
 
     PRECACHE_MODEL(model);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(PrecacheSound)
@@ -259,7 +285,7 @@ FUNC(PrecacheSound)
 
     PRECACHE_SOUND(sound);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(SetModel)
@@ -275,7 +301,7 @@ FUNC(SetModel)
     if(entity)
         SET_MODEL(entity, model);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(ent_get)
@@ -284,7 +310,7 @@ FUNC(ent_get)
     PyObject *ent;
 
     if(!PyArg_ParseTuple(args, "Os", &ent, &var))
-        return Py_None;
+        Py_RETURN_NONE;
 
     edict_t *entity = ParseEnt(ent);
 
@@ -294,8 +320,16 @@ FUNC(ent_get)
                 return PyFloat_FromDouble((double)entity->v.health);
         else if IS(origin)
                 return GetVector(entity->v.origin);
+        else if IS(size)
+                return GetVector(entity->v.size);
         else if IS(velocity)
                 return GetVector(entity->v.velocity);
+        else if IS(v_angle)
+                return GetVector(entity->v.v_angle);
+        else if IS(absmin)
+                return GetVector(entity->v.absmin);
+        else if IS(absmax)
+                return  GetVector(entity->v.absmax);
         else if IS(armor)
                 return PyFloat_FromDouble((double)entity->v.armorvalue);
         else if IS(view_ofs)
@@ -312,9 +346,31 @@ FUNC(ent_get)
                 return PyLong_FromLong(entity->v.solid);
         else if IS(movetype)
                 return PyLong_FromLong(entity->v.movetype);
+        else if IS(modelindex)
+                return PyLong_FromLong(entity->v.modelindex);
+        else if IS(effects)
+                return PyLong_FromLong(entity->v.effects);
+        else if IS(button)
+                return PyLong_FromLong(entity->v.button);
+        else if IS(model)
+                return PyUnicode_FromString(STRING(entity->v.model));
+        else if IS(aiment)
+        {
+                if(entity->v.aiment)
+                    return Py_BuildValue("(ii)", ENTINDEX(entity->v.aiment), entity->v.aiment->serialnumber);
+                else
+                    Py_RETURN_NONE;
+        }
+        else if IS(aiment)
+        {
+                if(entity->v.aiment)
+                    return Py_BuildValue("(ii)", ENTINDEX(entity->v.owner), entity->v.owner->serialnumber);
+                else
+                    Py_RETURN_NONE;
+        }
     }
 
-     return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(ent_set)
@@ -326,7 +382,7 @@ FUNC(ent_set)
     Py_XINCREF(Py_None);
 
     if(!PyArg_ParseTuple(args, "OsO", &ent, &var, &value))
-        return Py_None;
+        Py_RETURN_NONE;
 
     edict_t *entity = ParseEnt(ent);
 
@@ -334,10 +390,18 @@ FUNC(ent_set)
    {
         if IS(health)
                 entity->v.health = (float)PyFloat_AsDouble(value);
+        else if IS(size)
+                SetVector(entity->v.size, value);
         else if IS(origin)
                 SetVector(entity->v.origin, value);
         else if IS(velocity)
                 SetVector(entity->v.velocity, value);
+        else if IS(v_angle)
+                SetVector(entity->v.v_angle, value);
+        else if IS(absmin)
+                SetVector(entity->v.absmin, value);
+        else if IS(absmax)
+                SetVector(entity->v.absmax, value);
         else if IS(armor)
                 entity->v.armorvalue = (float)PyFloat_AsDouble(value);
         else if IS(view_ofs)
@@ -352,24 +416,47 @@ FUNC(ent_set)
                 entity->v.solid = PyLong_AsLong(value);
         else if IS(movetype)
                 entity->v.movetype = PyLong_AsLong(value);
+        else if IS(modelindex)
+                entity->v.modelindex = PyLong_AsLong(value);
+        else if IS(effects)
+                entity->v.effects = PyLong_AsLong(value);
+        else if IS(model)
+                entity->v.model = MAKE_STRING(PyUnicode_AsUTF8(value));
+        else if IS(button)
+                entity->v.button = PyLong_AsLong(value);
+        else if IS(owner)
+        {
+                edict_t *owner = ParseEnt(value);
+                if(owner)
+                    entity->v.owner = owner;
+        }
+        else if IS(aiment)
+        {
+            edict_t *aiment = ParseEnt(value);
+            if(aiment)
+                entity->v.aiment = aiment;
+        }
    }
-     return Py_None;
+
+   Py_RETURN_NONE;
 }
 
 FUNC(MakeVector) {
     PyObject *coords;
 
     if(!PyArg_ParseTuple(args, "O", &coords))
-        return Py_None;
+        Py_RETURN_FALSE;
 
     Vector Vec;
     if(SetVector(Vec, coords))
     {
         MAKE_VECTORS(Vec);
-        return Py_True;
+        Py_XDECREF(args);
+        Py_RETURN_TRUE;
     }
 
-    return Py_False;
+    Py_XDECREF(args);
+    Py_RETURN_FALSE;
 }
 
 FUNC(get_player_by_name) {
@@ -416,7 +503,7 @@ FUNC(ClientCmd) {
     if(entity)
         CLIENT_COMMAND(entity, cmd);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(CreateEntity) {
@@ -427,8 +514,7 @@ FUNC(CreateEntity) {
     if(pEnt)
         return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
 
-    Py_XINCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(SetSize) {
@@ -445,8 +531,7 @@ FUNC(SetSize) {
         UTIL_SetSize(VARS(pEnt), VecMin, VecMax);
 
     Py_XDECREF(args);
-    Py_XINCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(is_player) {
@@ -460,8 +545,7 @@ FUNC(is_player) {
     if(entity)
         return PyBool_FromLong(CBaseEntity::Instance(entity)->IsPlayer());
 
-    Py_XINCREF(Py_False);
-    return Py_False;
+    Py_RETURN_FALSE;
 }
 
 FUNC(is_valid)
@@ -475,21 +559,16 @@ FUNC(is_valid)
     Py_XDECREF(args);
 
     if(entity)
-    {
-        Py_XINCREF(Py_True);
-        return Py_True;
-    }
+        Py_RETURN_TRUE;
 
-    Py_XINCREF(Py_False);
-    return Py_False;
+    Py_RETURN_FALSE;
 }
 
 FUNC(globals_get) {
     const char *var;
-    Py_XINCREF(Py_None);
 
     if(!PyArg_ParseTuple(args, "s", &var))
-        return Py_None;
+        Py_RETURN_NONE;
 
     Py_XDECREF(args);
 
@@ -502,7 +581,7 @@ FUNC(globals_get) {
     else if IS(v_right)
             return GetVector(gpGlobals->v_right);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 
@@ -515,10 +594,9 @@ FUNC(dispatch_spawn) {
     edict_t *entity = ParseEnt(ent);
 
     if(entity)
-        return PyBool_FromLong((*other_gFunctionTable.pfnSpawn)(entity));
+        (*other_gFunctionTable.pfnSpawn)(entity);
 
-    Py_XINCREF(Py_False);
-    return Py_False;
+    Py_RETURN_NONE;
 }
 
 FUNC(dispatch_touch) {
@@ -530,15 +608,13 @@ FUNC(dispatch_touch) {
     edict_t *pEnt = ParseEnt(ent);
     edict_t *pEntOther = ParseEnt(other);
 
-    Py_XDECREF(args);
     Py_XDECREF(ent);
     Py_XDECREF(other);
 
     if(pEnt && pEntOther)
         (*other_gFunctionTable.pfnTouch)(pEnt, pEntOther);
 
-    Py_XINCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(dispatch_use) {
@@ -550,15 +626,10 @@ FUNC(dispatch_use) {
     edict_t *pEnt = ParseEnt(ent);
     edict_t *pEntOther = ParseEnt(other);
 
-    Py_XDECREF(args);
-    Py_XDECREF(ent);
-    Py_XDECREF(other);
-
     if(pEnt && pEntOther)
         (*other_gFunctionTable.pfnUse)(pEnt, pEntOther);
 
-    Py_XINCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 FUNC(dispatch_think) {
@@ -569,14 +640,10 @@ FUNC(dispatch_think) {
 
     edict_t *pEnt = ParseEnt(ent);
 
-    Py_XDECREF(args);
-    Py_XDECREF(ent);
-
     if(pEnt)
         (*other_gFunctionTable.pfnThink)(pEnt);
 
-    Py_XINCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 
@@ -591,7 +658,7 @@ FUNC(get_entity_by_index) {
     if(pEnt)
         return Py_BuildValue("(ii)", ENTINDEX(pEnt), pEnt->serialnumber);
 
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 void CreateEngineModule() {
@@ -615,8 +682,8 @@ void PyInitEngine() {
     REG(ServerCmd, "");
     REG(ClientCmd, "");
     REG(SetOrigin, "");
-    REG(cvar_set_float, "");
-    REG(cvar_set_string, "");
+    REG(CvarSetFloat, "");
+    REG(CvarSetString, "");
     REG(find_entity_by_classname, "");
     REG(get_msg_id, "");
     REG(send_message, "");
@@ -632,6 +699,7 @@ void PyInitEngine() {
     REG(dispatch_touch, "");
     REG(dispatch_use, "");
     REG(SetSize, "");
+    REG(FindEntityInSphere, "");
 
     CreateEngineModule();
 }

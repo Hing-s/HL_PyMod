@@ -1,4 +1,7 @@
+import vector
 import entity
+import consts
+import weapon
 
 class ClientCmdHandler:
 	def __init__(self, cmd, func):
@@ -16,50 +19,6 @@ def HandleMsg(msg, func):
 def HandleCmd(cmd, func):
 	CL_CMDS.append(ClientCmdHandler(cmd, func))
 
-class Vector:
-    def __init__(self, x, y, z):
-        self.x = float(x)
-        self.y = float(y)
-        self.z = float(z)
-        
-    def __add__(self, vec):
-        return Vector(self.x+vec.x, self.y+vec.y, self.z+vec.z)
-        
-    def __iadd__(self, vec):
-        self.__add__(vec)
-    
-    def __sub__(self, vec):
-        return Vector(self.x-vec.x, self.y-vec.y, self.z-vec.z)
-    
-    def __isub__(self, vec):
-        self.__sub__(vec)
-    
-    def __neg__(self):
-        return Vector(-self.x, -self.y, -self.z)
-    
-    def __eq__(self, vec):
-        return self.x == vec.x and self.y == vec.y and self.z == vec.z
-        
-    def __mul__(self, fl):
-        return Vector(self.x * fl, self.y * fl, self.z * fl)
-    
-    def __imul__(self, fl):
-        return self.__mul__(fl)
-        
-    def lenght(self):
-        import math
-        return math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
-
-    def tuple(self):
-   		return (self.x, self.y, self.z)
-        
-    def __repr__(self):
-        return '({}, {}, {})'.format(self.x, self.y, self.z)
-
-    def __str__(self):
-    	return self.__repr__()
-
-
 class GLOBALS:
 	def __getattr__(self, y):
 		return eng.globals_get(y)
@@ -73,7 +32,6 @@ SET_GLOBAL('at_aiconsole', 2)
 SET_GLOBAL('at_warning', 3)
 SET_GLOBAL('at_error', 4)
 SET_GLOBAL('at_logged', 5)
-SET_GLOBAL('Vector', Vector)
 SET_GLOBAL('gpGlobals', GLOBALS())
 
 SET_GLOBAL('WRITE_BYTE', lambda x: ('byte', x))
@@ -88,3 +46,9 @@ SET_GLOBAL('ALERT', lambda t, *m: eng.AlertMessage(t, '{}\n'.format(' '.join([st
 SET_GLOBAL('ENTINDEX', lambda i: ENT(eng.get_entity_by_index(i)))
 SET_GLOBAL('INDEXENT', lambda e: e[0] if isinstance(e, tuple) else e.edict[0])
 SET_GLOBAL('MSG', lambda e: eng.get_msg_id(e))
+SET_GLOBAL('CREATE_NAMED_ENTITY', lambda c, o=(0,0,0), a=(0,0,0), ow=None: eng.CreateNamedEntity(c, o, a, ow))
+SET_GLOBAL('ENT_REMOVE', lambda x: (eng.RemoveEntity(x), LINKED_ENTS.pop(x[0]) if x[0] in LINKED_ENTS else -1))
+
+SET_GLOBAL('SetBits', lambda flBitVector, bits: (flBitVector | bits))
+SET_GLOBAL('ClearBits', lambda flBitVector, bits: (flBitVector & (~bits)))
+SET_GLOBAL('FBitSet', lambda flBitVector, bit: (flBitVector & bits))

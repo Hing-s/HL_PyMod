@@ -218,9 +218,9 @@ void DispatchThink( edict_t *pent )
         if(builtins) {
             Py_XINCREF(builtins);
 
-            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
-            PyObject *args = Py_BuildValue("s((ii))", "think", ENTINDEX(pent), pent->serialnumber);
-            Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunLibFunc");
+            PyObject *args = Py_BuildValue("s((ii))", "dispatch_think", ENTINDEX(pent), pent->serialnumber);
+            PyObject_CallObject(RunDispatch, args);
 
             Py_XINCREF(RunDispatch);
             Py_XDECREF(args);
@@ -244,9 +244,9 @@ void DispatchUse( edict_t *pentUsed, edict_t *pentOther )
         if(builtins) {
             Py_XINCREF(builtins);
 
-            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
-            PyObject *args = Py_BuildValue("s((ii)(ii))", "use", ENTINDEX(pentUsed), pentUsed->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
-            Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunLibFunc");
+            PyObject *args = Py_BuildValue("s((ii)(ii))", "dispatch_use", ENTINDEX(pentUsed), pentUsed->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
+            PyObject_CallObject(RunDispatch, args);
 
             Py_XINCREF(RunDispatch);
             Py_XDECREF(args);
@@ -269,9 +269,9 @@ void DispatchTouch( edict_t *pentTouched, edict_t *pentOther )
        if(builtins) {
            Py_XINCREF(builtins);
 
-           PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
-           PyObject *args = Py_BuildValue("s((ii)(ii))", "touch", ENTINDEX(pentTouched), pentTouched->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
-           Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+           PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunLibFunc");
+           PyObject *args = Py_BuildValue("s((ii)(ii))", "dispatch_touch", ENTINDEX(pentTouched), pentTouched->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
+           PyObject_CallObject(RunDispatch, args);
 
            Py_XINCREF(RunDispatch);
            Py_XDECREF(args);
@@ -294,9 +294,9 @@ void DispatchBlocked( edict_t *pentBlocked, edict_t *pentOther )
         if(builtins) {
             Py_XINCREF(builtins);
 
-            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
-            PyObject *args = Py_BuildValue("s((ii)(ii))", "block", ENTINDEX(pentBlocked), pentBlocked->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
-            Py_XDECREF(PyObject_CallObject(RunDispatch, args));
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunLibFunc");
+            PyObject *args = Py_BuildValue("s((ii)(ii))", "dispatch_block", ENTINDEX(pentBlocked), pentBlocked->serialnumber, ENTINDEX(pentOther), pentOther->serialnumber);
+            PyObject_CallObject(RunDispatch, args);
 
             Py_XINCREF(RunDispatch);
             Py_XDECREF(args);
@@ -334,8 +334,8 @@ void DispatchObjectCollsionBox( edict_t *pent )
         if(builtins) {
             Py_XINCREF(builtins);
 
-            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunDispatch");
-            PyObject *args = Py_BuildValue("s((ii))", "collbox", ENTINDEX(pent), pent->serialnumber);
+            PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunLibFunc");
+            PyObject *args = Py_BuildValue("s((ii))", "dispatch_collbox", ENTINDEX(pent), pent->serialnumber);
             PyObject_CallObject(RunDispatch, args);
 
             Py_XINCREF(RunDispatch);
@@ -459,6 +459,19 @@ void PlayerPreThink( edict_t *pEntity )
 
 void PlayerPostThink( edict_t *pEntity )
 {
+    PyObject *builtins = PyImport_ImportModule("builtins");
+
+    if(builtins) {
+        Py_XINCREF(builtins);
+
+        PyObject *RunDispatch = PyObject_GetAttrString(builtins, "RunLibFunc");
+        PyObject *args = Py_BuildValue("s((ii))", "pPostThink", ENTINDEX(pEntity), pEntity->serialnumber);
+        PyObject_CallObject(RunDispatch, args);
+
+        Py_XINCREF(RunDispatch);
+        Py_XDECREF(args);
+    }
+
    (*other_gFunctionTable.pfnPlayerPostThink)(pEntity);
 }
 
